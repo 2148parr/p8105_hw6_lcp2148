@@ -6,7 +6,7 @@ output:
   github_document
 ---
 
-Loading in needed package: 
+Loading in needed packages: 
 
 ```{r setup, message = FALSE}
 library(tidyverse)
@@ -15,9 +15,9 @@ library(modelr)
 
 ## Problem 1
 
-Load and clean the data for regression analysis (converting numeric to factor where appropriate and checking for missing data).
+To start, I will load and clean the data for regression analysis, including converting numeric to factor where appropriate and checking for missing data:
 
-```{r birthweight, message = FALSE}
+```{r birthweight, message = FALSE, warning = FALSE}
 
 birthweight = 
   read_csv("./data/birthweight.csv") %>%
@@ -37,7 +37,7 @@ There are no missing values.
 
 The variables in the data set are  `r birthweight %>% names()`.
 
-The literature on low birthweight babies indicates social factors and health predictors like the mother's health, fetal health issues, and previous low birthweight babies contribute to infant birthweight. I will include family income, maternal race, maternal age at delivery, presence of malformations, and previous low birth weight babies, and maternal weight gain during pregnancy as predictors of low birthweight (Moreira, de Sousa, & Flavio Sarnom, 2018l Reichman & Pagnini,1997).
+The literature on low birthweight babies indicates social factors and health-related predictors like maternal age, fetal health issues, and previous low birthweight babies contribute to infant birthweight. I will include family income, maternal race, maternal age at delivery, presence of malformations, and previous low birth weight babies, and maternal weight gain during pregnancy as predictors of low birthweight (Moreira, de Sousa, & Flavio Sarnom, 2018; Reichman & Pagnini,1997).
 
 Moreira, A., Sousa, P., & Sarno, F. (2018). Low birth weight and its associated factors. *Einstein (Sao Paulo, Brazil), 16*(4), eAO4251. https://doi.org/10.31744/einstein_journal/2018AO4251
 
@@ -46,11 +46,9 @@ Reichman, N. E., & Pagnini, D. L. (1997). Maternal age and birth outcomes: data 
 My model:
 E(bwt) = malform + mrace + pnumlbw + wtgain + momage + fincome 
 
-Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
+Next I will fit my model, then check residuals for regression diagnostics by creating a plot of model residuals against fitted values with `add_predictions` and `add_residuals`: 
 
-Fitting the initial model, then checking residuals for regression diagnostics: 
-
-```{r model, message = FALSE}
+```{r model, message = FALSE, warning = FALSE}
 
 model_1 = lm(bwt ~ malform + mrace + pnumlbw + wtgain + momage + fincome, data = birthweight)
 
@@ -73,15 +71,14 @@ birthweight  %>%
 
 The residuals look evenly distributed around 0, so this model is appropriate to use based on this graph.
 
+Now, I will compare this model to two others:
 
-Compare your model to two others:
+- One using length at birth and gestational age as predictors (main effects only)
+-One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
 
-One using length at birth and gestational age as predictors (main effects only)
-One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
-Make this comparison in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
+I will do so using cross-validated prediction error and plot RMSE for the three models:
 
-
-```{r models, message = FALSE}
+```{r models, message = FALSE, warning = FALSE}
 
 crossvalidation = 
   crossv_mc(birthweight, 100) %>%
@@ -131,11 +128,11 @@ Based on the plot of the RMSE for the three models, model 3 is the best model, a
 
 ## Problem 2
 
-The bootstrap is helpful when you’d like to perform inference for a parameter / value / summary that doesn’t have an easy-to-write-down distribution in the usual repeated sampling framework. We’ll focus on a simple linear regression with tmax as the response and tmin as the predictor, and are interested in the distribution of two quantities estimated from these data:
+This section involves a simple linear regression with tmax as the response and tmin as the predictor, looking at the distribution of two quantities estimated from these data, R^2 and estimated log(β0*β1).
 
 First, I load in the data:
 
-```{r weather}
+```{r weather, message = FALSE}
 
 weather_df = 
   rnoaa::meteo_pull_monitors(
@@ -151,9 +148,9 @@ weather_df =
 
 ```
 
-Next I begin bootstrapping:
+I begin the process by bootstrapping:
 
-```{r boot_samp}
+```{r boot_samp, warning = FALSE}
 
 set.seed(1)
 
@@ -169,7 +166,7 @@ boot_data =
 
 ```
 
-Next I look at R^2, plotting the distribution of the estimates
+Next I look at R^2, plotting the distribution:
 
 ```{r boot_1}
 
@@ -246,5 +243,5 @@ boot_2 %>%
 
 ```
 
-The distribution of estimated  log(β0*β1)  looks approximately normal, and the 95% CI is (`r quantile(boot_2$r.squared, probs=0.025)`, `r quantile(boot_2$r.squared, probs=0.975)`)
+The distribution of estimated log(β0*β1) appears normal, and the 95% CI is (`r quantile(boot_2$log_beta, probs=0.025)`, `r quantile(boot_2$log_beta, probs=0.975)`)
 
