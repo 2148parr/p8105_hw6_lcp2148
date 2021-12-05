@@ -17,7 +17,7 @@ library(modelr)
 
 Load and clean the data for regression analysis (converting numeric to factor where appropriate and checking for missing data).
 
-```{r loadin, message = FALSE}
+```{r birthweight, message = FALSE}
 
 birthweight = 
   read_csv("./data/birthweight.csv") %>%
@@ -33,7 +33,9 @@ sum(is.na(birthweight))
 
 ```
 
-The variables in the data set are  `r birthweight %>% names()`
+There are no missing values. 
+
+The variables in the data set are  `r birthweight %>% names()`.
 
 The literature on low birthweight babies indicates social factors and health predictors like the mother's health, fetal health issues, and previous low birthweight babies contribute to infant birthweight. I will include family income, maternal race, maternal age at delivery, presence of malformations, and previous low birth weight babies, and maternal weight gain during pregnancy as predictors of low birthweight (Moreira, de Sousa, & Flavio Sarnom, 2018l Reichman & Pagnini,1997).
 
@@ -46,28 +48,92 @@ E(bwt) = malform + mrace + pnumlbw + wtgain + momage + fincome
 
 Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
 
+Fitting the initial model, then checking residuals for regression diagnostics: 
+
+```{r model, message = FALSE}
+
+model_1 = lm(bwt ~ malform + mrace + pnumlbw + wtgain + momage + fincome, data = birthweight)
+
+model_1 %>% broom::tidy() %>%
+  select(p.value, term, estimate)
+
+birthweight  %>%
+  modelr::add_predictions(model_1, var = "prediction")  %>%
+  modelr::add_residuals(model_1, var = "residual")  %>%
+  ggplot(aes(x = prediction, y = residual)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(se = FALSE, method = "lm", color = "red") +
+  labs(
+    x = "predicted values",
+    y = "residuals",
+    title = "Residuals and predicted values for model 1"
+  )
+
+```
+
+The residuals look evenly distributed around 0, so this model is appropriate to use based on this graph.
+
+
 Compare your model to two others:
 
 One using length at birth and gestational age as predictors (main effects only)
 One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
 Make this comparison in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
 
-Note that although we expect your model to be reasonable, model building itself is not a main idea of the course and we don’t necessarily expect your model to be “optimal”.
 
+```{r models, message = FALSE}
 
-```{r birthweight, message = FALSE}
+crossvalidation = 
+  crossv_mc(birthweight, 100) %>%
+  mutate(
+    test = map(test, as_tibble), 
+    train = map(train, as_tibble)
+  )
+crossvalidation = crossvalidation %>%
+    mutate(
+      mod1 = map(train, ~lm(bwt ~ malform + mrace + pnumlbw + wtgain + momage + 
+                            fincome, data = .x)), 
+      mod2 = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+      mod3 = map(train, ~lm(bwt ~ bhead + blength + babysex + babysex*blength + 
+                            babysex*bhead + blength*bhead + babysex*blength*bhead, 
+                            data = .x))
+  ) %>%
+  mutate(
+    rmse_mod1 = map2_dbl(mod1, test, ~rmse(model = .x, data = .y)),
+    rmse_mod2 = map2_dbl(mod2, test, ~rmse(model = .x, data = .y)),
+    rmse_mod3 = map2_dbl(mod3, test, ~rmse(model = .x, data = .y)),
+  )
+  
 
+crossvalidation %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) +
+  geom_violin(aes(fill = model)) +
+  scale_x_discrete(labels = c("mod1" = "model 1",
+                              "mod2" = "model 2",
+                              "mod3" = "model 3")) +
+  labs(
+    x = "model",
+    y = "RMSE",
+    title = "RMSE across 3 models"
+  )
+  
 
 ```
+
+Based on the plot of the RMSE for the three models, model 3 is the best model, as it has the lowest RMSE value. This means the most optimal model to examine predictors of low birthweight is the one using using head circumference, length, sex, and all interactions (including the three-way interaction). 
 
 ## Problem 2
 
 The bootstrap is helpful when you’d like to perform inference for a parameter / value / summary that doesn’t have an easy-to-write-down distribution in the usual repeated sampling framework. We’ll focus on a simple linear regression with tmax as the response and tmin as the predictor, and are interested in the distribution of two quantities estimated from these data:
 
-r̂ 2
-log(β̂ 0∗β̂ 1)
-Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities. Plot the distribution of your estimates, and describe these in words. Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r̂ 2 and log(β̂ 0∗β̂ 1). Note: broom::glance() is helpful for extracting r̂ 2 from a fitted regression, and broom::tidy() (with some additional wrangling) should help in computing log(β̂ 0∗β̂ 1).
-
+First, I load in the data:
 
 ```{r weather}
 
@@ -84,3 +150,59 @@ weather_df =
   select(name, id, everything())
 
 ```
+
+Next I begin bootstrapping:
+
+```{r boot_samp}
+
+set.seed(1)
+
+boot_sample = function(df) {
+  sample_frac(df, replace = TRUE)
+}
+
+boot_data = 
+  data_frame(
+    strap_number = 1:5000, 
+    strap_sample = rerun(5000, boot_sample(weather_df))
+  )
+
+```
+
+Next I look at r**2, plotting the distribution of the estimates
+
+```{r boot_1}
+
+boot_1 = 
+  boot_data  %>%
+  mutate(
+    models = map(strap_sample, ~lm(tmax ~ tmin, data = .x)),
+    results = map(models, broom::glance)
+  ) %>%
+  select(-strap_sample, -models) %>%
+  unnest(results)
+
+boot_1 %>%
+  janitor::clean_names() %>%
+  summarize(
+    lower_limit = quantile(r_squared, c(.025)),
+    upper_limit = quantile(r_squared, c(.975)),
+  ) %>%
+  knitr::kable()
+
+boot_1 %>%
+  ggplot(aes(x = r.squared)) +
+  geom_density() +
+  labs(
+    x = "r**2 values",
+    y = "density",
+    title = "Distribution of simulated r**2 estimates"
+  )
+
+
+```
+
+
+
+log(β̂ 0∗β̂ 1)
+Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities. Plot the distribution of your estimates, and describe these in words. Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r̂ 2 and log(β̂ 0∗β̂ 1). Note: broom::glance() is helpful for extracting r̂ 2 from a fitted regression, and broom::tidy() (with some additional wrangling) should help in computing log(β̂ 0∗β̂ 1).
