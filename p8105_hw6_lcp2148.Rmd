@@ -210,7 +210,7 @@ I then repeat the process with log(β0*β1 ) estimates, using a function for the
 ```{r boot_2}
 
 log_beta_h = function(df) {
-  log(df[1,2]*d[2,2]) %>%
+  log(df[1,2]*df[2,2]) %>%
     tibble() %>%
     mutate(
       log_beta = .$estimate) %>%
