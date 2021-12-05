@@ -202,7 +202,7 @@ boot_1 %>%
 
 ```
 
-The distribution of estimated R^2 values looks approximately normal, and the 95% CI for R^2 is (`r quantile(boot_1$r.squared, probs=0.025`, `r quantile(boot_1$r.squared, probs=0.975`
+The distribution of estimated R^2 values looks approximately normal, and the 95% CI for R^2 is (`r quantile(boot_1$r.squared, probs=0.025)`, `r quantile(boot_1$r.squared, probs=0.975)`)
 
 I then repeat the process with log(β0*β1 ) estimates, using a function for the beta estimates and broom::tidy
 
@@ -246,5 +246,5 @@ boot_2 %>%
 
 ```
 
-The distribution of estimated  log(β0*β1)  looks approximately normal, and the 95% CI is (`r quantile(boot_2$r.squared, probs=0.025`, `r quantile(boot_2$r.squared, probs=0.975`
+The distribution of estimated  log(β0*β1)  looks approximately normal, and the 95% CI is (`r quantile(boot_2$r.squared, probs=0.025)`, `r quantile(boot_2$r.squared, probs=0.975)`)
 
